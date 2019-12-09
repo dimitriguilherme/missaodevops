@@ -1,0 +1,102 @@
+#_YAML test - GITLAB
+#Dimitri Guilherme - Test
+image: node
+
+#stages
+stages:
+  - test
+  - package 
+#  - test
+  - deploy
+
+#cache:
+#  paths:
+#    - ./website/build
+
+before_script:
+  - whoami
+  - pwd
+
+test site:
+  stage: test
+  before_script:
+    - npm install -g broken-link-checker
+  script:
+    - cd website
+    - npm install && npm run start &
+    - npm install -g wait-on
+    - wait-on http://localhost:3000 --timeout 30000
+#    - blc --recursive --exclude-external http://localhost:3000
+
+vulnera check:
+  stage: test
+  script:
+   whoami
+
+packet site:
+  stage: package
+  cache:
+    key: site-package
+    policy: push
+    paths:
+      - ./website/build
+
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    when: always
+    expire_in: 2h20min
+    paths:
+      - ./website/build/test-site
+
+  script:
+    - cd website
+    - npm install
+    - npm run build
+
+
+##### DEVELOP =====
+deploy to develop:
+  stage: deploy
+  variables:
+    CNAME: develop.dimitrikg.surge.sh
+    GIT_STRATEGY: none
+  cache:
+    key: site-package
+    policy: pull
+#    path:
+#      - ./website/build
+  before_script:
+    - npm install -g surge
+  script:
+    - surge --project ./website/build/test-site --domain ${CNAME}
+  after_script:
+    - whoami
+  environment:
+    name: develop
+    url: http://${CNAME}
+  only:
+    - develop
+
+
+###### PRODUCTION =====
+deploy to production:
+  stage: deploy
+  variables:
+    CNAME: dimitrikg.surge.sh
+    GIT_STRATEGY: none
+  cache:
+    key: site-package
+    policy: pull
+#    path:
+#      - ./website/build
+  before_script:
+    - npm install -g surge
+  script:
+    - surge --project ./website/build/test-site --domain ${CNAME}
+  after_script:
+    - whoami
+  environment:
+    name: production
+    url: http://${CNAME}
+  only:
+    - master
